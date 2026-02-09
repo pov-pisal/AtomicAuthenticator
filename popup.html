@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Atomic Authenticator</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app" aria-live="polite">
+      <header class="app-header">
+        <div class="header-left">
+          <button
+            id="settingsBtn"
+            class="ghost icon-btn"
+            aria-label="Settings"
+            title="Settings"
+          >
+            ⚙️
+          </button>
+          <div class="title">
+            <div>
+              <h1>Atomic Authenticator</h1>
+              <p class="subtitle">Secure TOTP vault</p>
+            </div>
+          </div>
+        </div>
+        <button
+          id="editAccountsBtn"
+          class="ghost"
+          aria-label="Edit accounts"
+          title="Edit accounts"
+        >
+          ✏️
+        </button>
+      </header>
+
+      <main>
+        <section id="lockedView" class="card hidden" aria-hidden="true" inert>
+          <h2 id="lockTitle">Unlock vault</h2>
+          <p id="lockSubtitle">Enter your PIN to unlock.</p>
+
+          <div id="createPinFields" class="stack hidden" aria-hidden="true">
+            <label class="field">
+              <span>New PIN</span>
+              <input
+                id="newPin"
+                type="password"
+                inputmode="numeric"
+                autocomplete="new-password"
+                minlength="6"
+                placeholder="Minimum 6 digits"
+              />
+            </label>
+            <label class="field">
+              <span>Confirm PIN</span>
+              <input
+                id="confirmPin"
+                type="password"
+                inputmode="numeric"
+                autocomplete="new-password"
+                minlength="6"
+                placeholder="Repeat PIN"
+              />
+            </label>
+          </div>
+
+          <label id="unlockPinField" class="field">
+            <span>PIN</span>
+            <input
+              id="unlockPin"
+              type="password"
+              inputmode="numeric"
+              autocomplete="current-password"
+              minlength="6"
+              placeholder="Enter PIN"
+            />
+          </label>
+
+          <div class="row">
+            <button id="unlockBtn" class="primary">Unlock</button>
+          </div>
+          <p id="lockError" class="error" role="alert"></p>
+        </section>
+
+        <section id="mainView" class="hidden" aria-hidden="true" inert>
+          <div class="toolbar">
+            <div class="search">
+              <input
+                id="searchInput"
+                type="search"
+                placeholder="Search accounts"
+                aria-label="Search accounts"
+              />
+            </div>
+            <button id="addAccountBtn" class="primary">Add account</button>
+          </div>
+
+          <div id="emptyState" class="card empty hidden" aria-hidden="true">
+            <h3>No accounts yet</h3>
+            <p>Add your first TOTP account to get started.</p>
+          </div>
+
+          <div id="accountsList" class="list" role="list"></div>
+        </section>
+      </main>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    </div>
+
+    <div
+      id="modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      inert
+    >
+      <div class="modal-content">
+        <header>
+          <h2 id="modalTitle">Add account</h2>
+          <button id="closeModalBtn" class="ghost" aria-label="Close">✕</button>
+        </header>
+
+        <div class="stack">
+          <label class="field">
+            <span>Secret or otpauth URL</span>
+            <input
+              id="secretInput"
+              type="text"
+              placeholder="JBSW Y3DP EHPK 3PXP or otpauth://totp/..."
+            />
+          </label>
+          <label class="field">
+            <span>Issuer</span>
+            <input id="issuerInput" type="text" placeholder="Google" />
+          </label>
+          <label class="field">
+            <span>Label</span>
+            <input
+              id="labelInput"
+              type="text"
+              placeholder="myemail@gmail.com"
+            />
+          </label>
+        </div>
+
+        <div class="row space-between">
+          <span class="muted">Demo tools</span>
+          <button id="demoBtn" class="ghost hidden" aria-hidden="true">
+            Insert demo account
+          </button>
+        </div>
+
+        <div class="row center">
+          <button id="saveAccountBtn" class="primary">Save</button>
+          <button id="cancelAccountBtn" class="ghost">Cancel</button>
+        </div>
+        <p id="modalError" class="error" role="alert"></p>
+      </div>
+    </div>
+
+    <div
+      id="deleteModal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      inert
+    >
+      <div class="modal-content">
+        <header>
+          <h2>Delete account</h2>
+          <button id="closeDeleteBtn" class="ghost" aria-label="Close">
+            ✕
+          </button>
+        </header>
+        <p class="muted">This action cannot be undone.</p>
+        <div class="row center">
+          <button id="confirmDeleteBtn" class="primary">Delete</button>
+          <button id="cancelDeleteBtn" class="ghost">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="editAccountsModal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      inert
+    >
+      <div class="modal-content">
+        <header>
+          <h2>Edit accounts</h2>
+          <button id="closeEditAccountsBtn" class="ghost" aria-label="Close">
+            ✕
+          </button>
+        </header>
+        <div id="editAccountsList" class="edit-list" role="list"></div>
+      </div>
+    </div>
+
+    <div
+      id="settingsModal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      inert
+    >
+      <div class="modal-content">
+        <header>
+          <div class="modal-header-left">
+            <button
+              id="settingsBackBtn"
+              class="ghost icon-btn hidden"
+              aria-label="Back"
+              title="Back"
+            >
+              ←
+            </button>
+          </div>
+          <h2>Settings</h2>
+          <button id="closeSettingsBtn" class="ghost" aria-label="Close">
+            ✕
+          </button>
+        </header>
+
+        <div id="settingsList" class="settings-list" role="list">
+          <button
+            class="settings-item"
+            data-settings="change-pin"
+            role="listitem"
+          >
+            <span class="settings-icon">🔐</span>
+            <span class="settings-label">Change password</span>
+            <span class="settings-chevron">›</span>
+          </button>
+          <button class="settings-item" data-settings="backup" role="listitem">
+            <span class="settings-icon">💾</span>
+            <span class="settings-label">Backup</span>
+            <span class="settings-chevron">›</span>
+          </button>
+          <button
+            class="settings-item"
+            data-settings="preferences"
+            role="listitem"
+          >
+            <span class="settings-icon">🛠️</span>
+            <span class="settings-label">Preferences</span>
+            <span class="settings-chevron">›</span>
+          </button>
+        </div>
+
+        <div class="settings-detail">
+          <section
+            id="settingsChangePin"
+            class="settings-section hidden"
+            aria-hidden="true"
+          >
+            <h3>Change password</h3>
+            <div class="stack">
+              <label class="field">
+                <span>Current PIN</span>
+                <input
+                  id="currentPinInput"
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="current-password"
+                  minlength="6"
+                  placeholder="Enter current PIN"
+                />
+              </label>
+              <label class="field">
+                <span>New PIN</span>
+                <input
+                  id="newPinInput"
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="new-password"
+                  minlength="6"
+                  placeholder="Minimum 6 digits"
+                />
+              </label>
+              <label class="field">
+                <span>Confirm new PIN</span>
+                <input
+                  id="confirmNewPinInput"
+                  type="password"
+                  inputmode="numeric"
+                  autocomplete="new-password"
+                  minlength="6"
+                  placeholder="Repeat new PIN"
+                />
+              </label>
+            </div>
+            <div class="row center">
+              <button id="changePinBtn" class="primary">Update PIN</button>
+            </div>
+            <p id="changePinError" class="error" role="alert"></p>
+          </section>
+
+          <section
+            id="settingsBackup"
+            class="settings-section hidden"
+            aria-hidden="true"
+          >
+            <h3>Backup</h3>
+            <p class="muted">Download your encrypted vault for safekeeping.</p>
+            <div class="row center">
+              <button id="backupBtn" class="ghost">Download backup</button>
+            </div>
+          </section>
+
+          <section
+            id="settingsPreferences"
+            class="settings-section hidden"
+            aria-hidden="true"
+          >
+            <h3>Preferences</h3>
+            <div class="settings-row">
+              <span>Auto-lock after</span>
+              <select id="lockTimeoutSelect" aria-label="Auto-lock timeout">
+                <option value="60000">1 minute</option>
+                <option value="120000">2 minutes</option>
+                <option value="300000">5 minutes</option>
+                <option value="600000">10 minutes</option>
+                <option value="1800000">30 minutes</option>
+                <option value="0">Never</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <span>Theme</span>
+              <select id="themeSelect" aria-label="Theme">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+            </div>
+            <label class="toggle">
+              <input id="demoToggle" type="checkbox" />
+              <span>Enable demo tools</span>
+            </label>
+            <div class="row center">
+              <button id="prefSaveBtn" class="primary">Save</button>
+              <button id="prefCancelBtn" class="ghost">Cancel</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
