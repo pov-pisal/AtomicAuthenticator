@@ -182,8 +182,8 @@ h1 {
 button {
   border: none;
   cursor: pointer;
-  font-size: 11px;
-  padding: 6px 10px;
+  font-size: 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   transition:
     transform 0.1s ease,
@@ -211,6 +211,50 @@ button:active {
   gap: 8px;
   align-items: center;
   margin-top: 12px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+
+.import-box {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.import-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 88px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-family:
+    "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.file-input {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.row.end {
+  justify-content: flex-end;
 }
 
 .center {
@@ -257,6 +301,12 @@ button:active {
   font-size: 26px;
   font-weight: 600;
   letter-spacing: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.account-code:hover {
+  color: var(--primary);
 }
 
 .code-row {

@@ -145,13 +145,6 @@
           </label>
         </div>
 
-        <div class="row space-between">
-          <span class="muted">Demo tools</span>
-          <button id="demoBtn" class="ghost hidden" aria-hidden="true">
-            Insert demo account
-          </button>
-        </div>
-
         <div class="row center">
           <button id="saveAccountBtn" class="primary">Save</button>
           <button id="cancelAccountBtn" class="ghost">Cancel</button>
@@ -308,9 +301,32 @@
             aria-hidden="true"
           >
             <h3>Backup</h3>
-            <p class="muted">Download your encrypted vault for safekeeping.</p>
-            <div class="row center">
-              <button id="backupBtn" class="ghost">Download backup</button>
+            <p class="muted">Copy or download your encrypted vault.</p>
+            <div class="import-box">
+              <textarea
+                id="exportText"
+                class="import-textarea"
+                rows="4"
+                readonly
+                placeholder="Your backup will appear here..."
+              ></textarea>
+              <div class="row end">
+                <button id="copyBackupBtn" class="ghost">Copy backup</button>
+                <button id="backupBtn" class="primary">Download backup</button>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <p class="muted">Paste a backup JSON to restore your vault.</p>
+            <div class="import-box">
+              <textarea
+                id="importText"
+                class="import-textarea"
+                rows="4"
+                placeholder='{"exportedAt":"2026-01-01T00:00:00.000Z","vault":"..."}'
+              ></textarea>
+              <div class="row end">
+                <button id="importBtn" class="primary">Import backup</button>
+              </div>
             </div>
           </section>
 
@@ -338,10 +354,17 @@
                 <option value="light">Light</option>
               </select>
             </div>
-            <label class="toggle">
-              <input id="demoToggle" type="checkbox" />
-              <span>Enable demo tools</span>
-            </label>
+            <div class="settings-row">
+              <span>Order accounts</span>
+              <select id="sortSelect" aria-label="Order accounts">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="issuer-asc">Issuer A → Z</option>
+                <option value="issuer-desc">Issuer Z → A</option>
+                <option value="label-asc">Label A → Z</option>
+                <option value="label-desc">Label Z → A</option>
+              </select>
+            </div>
             <div class="row center">
               <button id="prefSaveBtn" class="primary">Save</button>
               <button id="prefCancelBtn" class="ghost">Cancel</button>

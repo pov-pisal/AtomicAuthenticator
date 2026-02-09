@@ -43,8 +43,6 @@ const elements = {
   secretInput: document.getElementById("secretInput"),
   issuerInput: document.getElementById("issuerInput"),
   labelInput: document.getElementById("labelInput"),
-  demoToggle: document.getElementById("demoToggle"),
-  demoBtn: document.getElementById("demoBtn"),
   saveAccountBtn: document.getElementById("saveAccountBtn"),
   cancelAccountBtn: document.getElementById("cancelAccountBtn"),
   modalError: document.getElementById("modalError"),
@@ -65,10 +63,15 @@ const elements = {
   changePinBtn: document.getElementById("changePinBtn"),
   changePinError: document.getElementById("changePinError"),
   backupBtn: document.getElementById("backupBtn"),
+  copyBackupBtn: document.getElementById("copyBackupBtn"),
+  exportText: document.getElementById("exportText"),
+  importText: document.getElementById("importText"),
+  importBtn: document.getElementById("importBtn"),
   settingsChangePin: document.getElementById("settingsChangePin"),
   settingsBackup: document.getElementById("settingsBackup"),
   settingsPreferences: document.getElementById("settingsPreferences"),
   themeSelect: document.getElementById("themeSelect"),
+  sortSelect: document.getElementById("sortSelect"),
   prefSaveBtn: document.getElementById("prefSaveBtn"),
   prefCancelBtn: document.getElementById("prefCancelBtn"),
 };
@@ -139,9 +142,53 @@ function getTheme() {
   return meta?.theme || "dark";
 }
 
+function getSortMode() {
+  return meta?.sortMode || "newest";
+}
+
 function applyTheme(theme) {
   const resolved = theme === "light" ? "light" : "dark";
   document.documentElement.dataset.theme = resolved;
+}
+
+function normalizeSortText(value) {
+  return (value || "").toString().trim().toLowerCase();
+}
+
+function sortAccounts(list) {
+  const mode = getSortMode();
+  const sorted = [...list];
+  if (mode === "oldest") {
+    sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    return sorted;
+  }
+  if (mode === "newest") {
+    sorted.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return sorted;
+  }
+  if (mode === "issuer-asc" || mode === "issuer-desc") {
+    sorted.sort((a, b) =>
+      normalizeSortText(a.issuer).localeCompare(
+        normalizeSortText(b.issuer),
+        undefined,
+        { sensitivity: "base" },
+      ),
+    );
+    if (mode === "issuer-desc") sorted.reverse();
+    return sorted;
+  }
+  if (mode === "label-asc" || mode === "label-desc") {
+    sorted.sort((a, b) =>
+      normalizeSortText(a.label).localeCompare(
+        normalizeSortText(b.label),
+        undefined,
+        { sensitivity: "base" },
+      ),
+    );
+    if (mode === "label-desc") sorted.reverse();
+    return sorted;
+  }
+  return sorted;
 }
 
 function clearSession() {
@@ -219,7 +266,6 @@ function openModal(editAccount = null) {
   elements.issuerInput.value = editAccount?.issuer || "";
   elements.labelInput.value = editAccount?.label || "";
   elements.modalError.textContent = "";
-  toggleDemoButton();
   elements.modal.classList.remove("hidden");
   elements.modal.setAttribute("aria-hidden", "false");
   elements.modal.removeAttribute("inert");
@@ -275,7 +321,7 @@ function renderEditAccountsList() {
       '<div class="muted">No accounts to edit.</div>';
     return;
   }
-  vault.accounts.forEach((account) => {
+  sortAccounts(vault.accounts).forEach((account) => {
     const row = document.createElement("div");
     row.className = "edit-item";
     row.setAttribute("role", "listitem");
@@ -325,14 +371,16 @@ function openSettingsModal() {
   elements.currentPinInput.value = "";
   elements.newPinInput.value = "";
   elements.confirmNewPinInput.value = "";
-  elements.demoToggle.checked = Boolean(meta?.demoEnabled);
   elements.lockTimeoutSelect.value = String(getLockTimeoutMs());
   if (elements.themeSelect) {
     elements.themeSelect.value = getTheme();
   }
+  if (elements.sortSelect) {
+    elements.sortSelect.value = getSortMode();
+  }
   preferencesDraft = {
     lockTimeoutMs: getLockTimeoutMs(),
-    demoEnabled: Boolean(meta?.demoEnabled),
+    sortMode: getSortMode(),
     theme: getTheme(),
   };
   showSettingsList();
@@ -391,14 +439,19 @@ function openSettingsSection(key) {
   if (key === "preferences") {
     preferencesDraft = {
       lockTimeoutMs: getLockTimeoutMs(),
-      demoEnabled: Boolean(meta?.demoEnabled),
+      sortMode: getSortMode(),
       theme: getTheme(),
     };
     elements.lockTimeoutSelect.value = String(preferencesDraft.lockTimeoutMs);
-    elements.demoToggle.checked = preferencesDraft.demoEnabled;
     if (elements.themeSelect) {
       elements.themeSelect.value = preferencesDraft.theme;
     }
+    if (elements.sortSelect) {
+      elements.sortSelect.value = preferencesDraft.sortMode;
+    }
+  }
+  if (key === "backup") {
+    populateExportBackup();
   }
 }
 
@@ -406,28 +459,31 @@ async function savePreferences() {
   if (!preferencesDraft) return;
   meta = await updateMeta({
     lockTimeoutMs: preferencesDraft.lockTimeoutMs,
-    demoEnabled: preferencesDraft.demoEnabled,
+    sortMode: preferencesDraft.sortMode,
     theme: preferencesDraft.theme,
   });
   if (sessionData) {
     sessionData.lastActive = Date.now();
     await setSession(sessionData);
   }
-  toggleDemoButton();
   applyTheme(preferencesDraft.theme);
+  renderAccounts();
   showToast("Preferences saved");
+  closeSettingsModal();
 }
 
 function cancelPreferences() {
   preferencesDraft = {
     lockTimeoutMs: getLockTimeoutMs(),
-    demoEnabled: Boolean(meta?.demoEnabled),
+    sortMode: getSortMode(),
     theme: getTheme(),
   };
   elements.lockTimeoutSelect.value = String(preferencesDraft.lockTimeoutMs);
-  elements.demoToggle.checked = preferencesDraft.demoEnabled;
   if (elements.themeSelect) {
     elements.themeSelect.value = preferencesDraft.theme;
+  }
+  if (elements.sortSelect) {
+    elements.sortSelect.value = preferencesDraft.sortMode;
   }
 }
 
@@ -442,16 +498,6 @@ async function confirmDelete() {
   renderAccounts();
   if (!elements.editAccountsModal.classList.contains("hidden")) {
     renderEditAccountsList();
-  }
-}
-
-function toggleDemoButton() {
-  if (meta?.demoEnabled) {
-    elements.demoBtn.classList.remove("hidden");
-    elements.demoBtn.setAttribute("aria-hidden", "false");
-  } else {
-    elements.demoBtn.classList.add("hidden");
-    elements.demoBtn.setAttribute("aria-hidden", "true");
   }
 }
 
@@ -492,11 +538,8 @@ function handleBackup() {
     showToast("No vault to backup");
     return;
   }
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    vault: vaultRecord,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+  const payload = buildBackupPayload();
+  const blob = new Blob([payload], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
@@ -505,6 +548,63 @@ function handleBackup() {
   link.download = "atomic-authenticator-backup.json";
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function buildBackupPayload() {
+  if (!vaultRecord) return "";
+  return JSON.stringify(
+    {
+      exportedAt: new Date().toISOString(),
+      vault: vaultRecord,
+    },
+    null,
+    2,
+  );
+}
+
+function populateExportBackup() {
+  if (!elements.exportText) return;
+  elements.exportText.value = buildBackupPayload();
+}
+
+async function handleCopyBackup() {
+  const payload = buildBackupPayload();
+  if (!payload) {
+    showToast("No vault to backup");
+    return;
+  }
+  await navigator.clipboard.writeText(payload);
+  showToast("Backup copied");
+}
+
+async function handleImportBackup() {
+  try {
+    const content = elements.importText?.value?.trim();
+    if (!content) {
+      showToast("Paste a backup JSON");
+      return;
+    }
+    const payload = JSON.parse(content);
+    const importedVault = payload?.vault;
+    if (!importedVault || typeof importedVault !== "string") {
+      showToast("Invalid backup file");
+      return;
+    }
+
+    vaultRecord = importedVault;
+    await setVaultRecord(vaultRecord);
+    await clearStoredSession();
+    await setLocked(true);
+    showLockedView({ createMode: false });
+    closeSettingsModal();
+    showToast("Backup imported");
+  } catch (error) {
+    showToast("Import failed");
+  } finally {
+    if (elements.importText) {
+      elements.importText.value = "";
+    }
+  }
 }
 
 async function saveAccount() {
@@ -546,6 +646,11 @@ async function saveAccount() {
     issuer: issuerValue,
     label: labelValue,
     secret: normalizedSecret,
+    createdAt:
+      editingId && vault?.accounts
+        ? vault.accounts.find((item) => item.id === editingId)?.createdAt ||
+          Date.now()
+        : Date.now(),
   };
 
   if (editingId) {
@@ -568,15 +673,16 @@ function renderAccounts() {
     const haystack = `${account.issuer} ${account.label}`.toLowerCase();
     return haystack.includes(query);
   });
+  const ordered = sortAccounts(filtered);
 
   elements.accountsList.innerHTML = "";
   elements.emptyState.classList.toggle("hidden", vault.accounts.length !== 0);
 
-  if (filtered.length === 0) {
+  if (ordered.length === 0) {
     return;
   }
 
-  for (const account of filtered) {
+  for (const account of ordered) {
     const item = document.createElement("div");
     item.className = "account";
     item.dataset.id = account.id;
@@ -603,6 +709,7 @@ function renderAccounts() {
     const code = document.createElement("div");
     code.className = "account-code";
     code.dataset.code = "";
+    code.setAttribute("title", "Click to copy");
     code.textContent = "------";
 
     const ring = document.createElement("div");
@@ -681,14 +788,23 @@ function updateProgress(now = Date.now()) {
 }
 
 async function handleAccountAction(event) {
-  const button = event.target.closest("button[data-action]");
-  if (!button) return;
-  const action = button.dataset.action;
-  const item = button.closest(".account");
+  const codeTarget = event.target.closest(".account-code");
+  const item = event.target.closest(".account");
   if (!item) return;
   const id = item.dataset.id;
   const account = vault.accounts.find((acc) => acc.id === id);
   if (!account) return;
+
+  if (codeTarget) {
+    const code = codes.get(id) || (await generateTOTP(account.secret));
+    await navigator.clipboard.writeText(code);
+    showToast("Copied");
+    return;
+  }
+
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const action = button.dataset.action;
 
   if (action === "copy") {
     const code = codes.get(id) || (await generateTOTP(account.secret));
@@ -762,9 +878,8 @@ async function init() {
   if (elements.lockTimeoutSelect) {
     elements.lockTimeoutSelect.value = String(getLockTimeoutMs());
   }
-  if (elements.demoToggle) {
-    elements.demoToggle.checked = Boolean(meta?.demoEnabled);
-    toggleDemoButton();
+  if (elements.sortSelect) {
+    elements.sortSelect.value = getSortMode();
   }
   applyTheme(getTheme());
 
@@ -814,6 +929,8 @@ async function init() {
   elements.settingsBackBtn.addEventListener("click", showSettingsList);
   elements.changePinBtn.addEventListener("click", handleChangePin);
   elements.backupBtn.addEventListener("click", handleBackup);
+  elements.copyBackupBtn.addEventListener("click", handleCopyBackup);
+  elements.importBtn.addEventListener("click", handleImportBackup);
   elements.prefSaveBtn.addEventListener("click", savePreferences);
   elements.prefCancelBtn.addEventListener("click", cancelPreferences);
   document.querySelectorAll(".settings-item").forEach((button) => {
@@ -830,7 +947,7 @@ async function init() {
     if (!preferencesDraft) {
       preferencesDraft = {
         lockTimeoutMs: getLockTimeoutMs(),
-        demoEnabled: Boolean(meta?.demoEnabled),
+        sortMode: getSortMode(),
         theme: getTheme(),
       };
     }
@@ -843,29 +960,25 @@ async function init() {
     if (!preferencesDraft) {
       preferencesDraft = {
         lockTimeoutMs: getLockTimeoutMs(),
-        demoEnabled: Boolean(meta?.demoEnabled),
+        sortMode: getSortMode(),
         theme: getTheme(),
       };
     }
     preferencesDraft.theme = elements.themeSelect.value;
   });
 
-  elements.demoToggle.addEventListener("change", () => {
-    if (!preferencesDraft) {
-      preferencesDraft = {
-        lockTimeoutMs: getLockTimeoutMs(),
-        demoEnabled: Boolean(meta?.demoEnabled),
-        theme: getTheme(),
-      };
-    }
-    preferencesDraft.demoEnabled = elements.demoToggle.checked;
-  });
-
-  elements.demoBtn.addEventListener("click", () => {
-    elements.secretInput.value = "JBSWY3DPEHPK3PXP";
-    elements.issuerInput.value = "Demo";
-    elements.labelInput.value = "demo@example.com";
-  });
+  if (elements.sortSelect) {
+    elements.sortSelect.addEventListener("change", () => {
+      if (!preferencesDraft) {
+        preferencesDraft = {
+          lockTimeoutMs: getLockTimeoutMs(),
+          sortMode: getSortMode(),
+          theme: getTheme(),
+        };
+      }
+      preferencesDraft.sortMode = elements.sortSelect.value;
+    });
+  }
 
   elements.secretInput.addEventListener("blur", () => {
     const value = elements.secretInput.value.trim();

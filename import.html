@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Import Backup</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="app" aria-live="polite">
+      <header class="app-header">
+        <div class="header-left">
+          <div class="title">
+            <div>
+              <h1>Import Backup</h1>
+              <p class="subtitle">Restore your encrypted vault</p>
+            </div>
+          </div>
+        </div>
+        <button id="closeImportBtn" class="ghost" aria-label="Close">✕</button>
+      </header>
+
+      <main>
+        <section class="card">
+          <p class="muted">Choose your JSON backup file to restore.</p>
+          <div class="import-box">
+            <input
+              id="importFileInput"
+              type="file"
+              accept="application/json"
+              class="file-input"
+            />
+            <div class="row end">
+              <button id="importFileBtn" class="primary">Import</button>
+            </div>
+            <p id="importStatus" class="muted"></p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="import.js"></script>
+  </body>
+</html>

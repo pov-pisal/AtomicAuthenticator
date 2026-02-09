@@ -47,8 +47,8 @@ export async function getMeta() {
     result[META_KEY] || {
       locked: true,
       lastActive: 0,
-      demoEnabled: false,
       lockTimeoutMs: 2 * 60 * 1000,
+      sortMode: "newest",
       theme: "dark",
     }
   );
