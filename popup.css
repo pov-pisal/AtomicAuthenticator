@@ -219,19 +219,155 @@ button:active {
   margin: 14px 0;
 }
 
-.import-box {
-  background: var(--panel-2);
+.backup-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.backup-tab {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
-  display: grid;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.backup-tab:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.backup-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--bg);
+}
+
+.backup-tab-content {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+  min-height: 200px;
+}
+
+.backup-tab-content.hidden {
+  display: none;
+}
+
+.backup-textarea {
+  width: 100%;
+  resize: none;
+  height: 110px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family:
+    "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  transition: all 0.2s ease;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.backup-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--panel-2);
+}
+
+.backup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.backup-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.copy-btn {
+  background: var(--primary);
+  color: var(--bg);
+}
+
+.copy-btn:hover {
+  background: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(76, 201, 240, 0.3);
+}
+
+.download-btn {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.download-btn:hover {
+  background: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+}
+
+.import-btn {
+  background: var(--primary);
+  color: var(--bg);
+}
+
+.import-btn:hover {
+  background: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(76, 201, 240, 0.3);
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.import-error {
+  padding: 6px 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border-left: 2px solid var(--danger);
+  border-radius: 4px;
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.import-error.hidden {
+  display: none !important;
+}
+
+button.small {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  height: auto !important;
+}
+
+  color: var(--primary);
 }
 
 .import-textarea {
   width: 100%;
   resize: vertical;
-  min-height: 88px;
+  min-height: 80px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -241,6 +377,25 @@ button:active {
   font-family:
     "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
+  transition: border-color 0.2s ease;
+}
+
+.import-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.import-error {
+  padding: 8px 10px;
+  background: rgba(248, 113, 113, 0.1);
+  border-left: 3px solid var(--danger);
+  border-radius: 4px;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.import-error.hidden {
+  display: none !important;
 }
 
 .file-input {

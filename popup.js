@@ -67,6 +67,10 @@ const elements = {
   exportText: document.getElementById("exportText"),
   importText: document.getElementById("importText"),
   importBtn: document.getElementById("importBtn"),
+  importFile: document.getElementById("importFile"),
+  importError: document.getElementById("importError"),
+  backupStatus: document.getElementById("backupStatus"),
+  backupDate: document.getElementById("backupDate"),
   settingsChangePin: document.getElementById("settingsChangePin"),
   settingsBackup: document.getElementById("settingsBackup"),
   settingsPreferences: document.getElementById("settingsPreferences"),
@@ -545,17 +549,20 @@ function handleBackup() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "atomic-authenticator-backup.json";
+  const timestamp = new Date().toISOString().split("T")[0];
+  link.download = `atomic-authenticator-backup-${timestamp}.json`;
   link.click();
   URL.revokeObjectURL(url);
+  showToast("✓ Backup downloaded successfully");
 }
 
 function buildBackupPayload() {
-  if (!vaultRecord) return "";
+  if (!vault || !vault.accounts) return "";
   return JSON.stringify(
     {
       exportedAt: new Date().toISOString(),
-      vault: vaultRecord,
+      accounts: vault.accounts,
+      createdAt: vault.createdAt,
     },
     null,
     2,
@@ -565,6 +572,18 @@ function buildBackupPayload() {
 function populateExportBackup() {
   if (!elements.exportText) return;
   elements.exportText.value = buildBackupPayload();
+  updateBackupStatus();
+}
+
+function updateBackupStatus() {
+  if (!elements.backupStatus || !elements.backupDate) return;
+  if (elements.exportText.value) {
+    elements.backupStatus.classList.remove("hidden");
+    const now = new Date();
+    elements.backupDate.textContent = `Last generated: ${now.toLocaleString()}`;
+  } else {
+    elements.backupStatus.classList.add("hidden");
+  }
 }
 
 async function handleCopyBackup() {
@@ -574,36 +593,60 @@ async function handleCopyBackup() {
     return;
   }
   await navigator.clipboard.writeText(payload);
-  showToast("Backup copied");
+  showToast("✓ Backup copied to clipboard");
 }
 
 async function handleImportBackup() {
   try {
+    clearImportError();
     const content = elements.importText?.value?.trim();
     if (!content) {
-      showToast("Paste a backup JSON");
+      showImportError("Paste a backup JSON or upload a file");
       return;
     }
     const payload = JSON.parse(content);
-    const importedVault = payload?.vault;
-    if (!importedVault || typeof importedVault !== "string") {
-      showToast("Invalid backup file");
+    const importedAccounts = payload?.accounts;
+    if (!Array.isArray(importedAccounts)) {
+      showImportError("Invalid backup file format");
       return;
     }
 
-    vaultRecord = importedVault;
+    // Import accounts into current vault
+    if (!vault) {
+      vault = { accounts: [], createdAt: Date.now() };
+    }
+    vault.accounts = importedAccounts;
+
+    // Re-encrypt with current PIN
+    vaultRecord = await encryptVault(sessionPin, vault);
     await setVaultRecord(vaultRecord);
-    await clearStoredSession();
-    await setLocked(true);
-    showLockedView({ createMode: false });
+    showToast("✓ Backup imported successfully");
+
+    // Refresh the accounts list
+    renderAccounts();
     closeSettingsModal();
-    showToast("Backup imported");
   } catch (error) {
-    showToast("Import failed");
+    showImportError("Import failed: Invalid JSON format");
   } finally {
     if (elements.importText) {
       elements.importText.value = "";
     }
+    if (elements.importFile) {
+      elements.importFile.value = "";
+    }
+  }
+}
+
+function showImportError(message) {
+  if (!elements.importError) return;
+  elements.importError.textContent = message;
+  elements.importError.classList.remove("hidden");
+}
+
+function clearImportError() {
+  if (elements.importError) {
+    elements.importError.textContent = "";
+    elements.importError.classList.add("hidden");
   }
 }
 
@@ -933,6 +976,23 @@ async function init() {
   elements.importBtn.addEventListener("click", handleImportBackup);
   elements.prefSaveBtn.addEventListener("click", savePreferences);
   elements.prefCancelBtn.addEventListener("click", cancelPreferences);
+
+  // Backup tabs
+  document.querySelectorAll(".backup-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const tabName = tab.dataset.tab;
+      document
+        .querySelectorAll(".backup-tab")
+        .forEach((t) => t.classList.remove("active"));
+      document
+        .querySelectorAll(".backup-tab-content")
+        .forEach((c) => c.classList.add("hidden"));
+      tab.classList.add("active");
+      const content = document.getElementById(`${tabName}-tab`);
+      if (content) content.classList.remove("hidden");
+    });
+  });
+
   document.querySelectorAll(".settings-item").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.settings;

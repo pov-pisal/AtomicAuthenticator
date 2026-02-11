@@ -300,33 +300,50 @@
             class="settings-section hidden"
             aria-hidden="true"
           >
-            <h3>Backup</h3>
-            <p class="muted">Copy or download your encrypted vault.</p>
-            <div class="import-box">
+            <h3>🛡️ Backup</h3>
+
+            <div class="backup-tabs">
+              <button class="backup-tab active" data-tab="export">
+                💾 Export
+              </button>
+              <button class="backup-tab" data-tab="import">📤 Import</button>
+            </div>
+
+            <!-- Export Section -->
+            <div class="backup-tab-content" id="export-tab">
               <textarea
                 id="exportText"
-                class="import-textarea"
-                rows="4"
+                class="backup-textarea"
                 readonly
-                placeholder="Your backup will appear here..."
+                placeholder="Your backup..."
               ></textarea>
-              <div class="row end">
-                <button id="copyBackupBtn" class="ghost">Copy backup</button>
-                <button id="backupBtn" class="primary">Download backup</button>
+              <div class="backup-actions">
+                <button id="copyBackupBtn" class="backup-btn copy-btn">
+                  📋 Copy to Clipboard
+                </button>
+                <button id="backupBtn" class="backup-btn download-btn">
+                  ⬇️ Download
+                </button>
               </div>
             </div>
-            <div class="divider"></div>
-            <p class="muted">Paste a backup JSON to restore your vault.</p>
-            <div class="import-box">
+
+            <!-- Import Section -->
+            <div class="backup-tab-content hidden" id="import-tab">
               <textarea
                 id="importText"
-                class="import-textarea"
-                rows="4"
-                placeholder='{"exportedAt":"2026-01-01T00:00:00.000Z","vault":"..."}'
+                class="backup-textarea"
+                placeholder='{"vault":"..."}'
               ></textarea>
-              <div class="row end">
-                <button id="importBtn" class="primary">Import backup</button>
+              <div class="backup-actions">
+                <button id="importBtn" class="backup-btn import-btn">
+                  ✓ Import Backup
+                </button>
               </div>
+              <div
+                id="importError"
+                class="import-error hidden"
+                role="alert"
+              ></div>
             </div>
           </section>
 
