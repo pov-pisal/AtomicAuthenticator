@@ -7,10 +7,7 @@
     "default_title": "Atomic Authenticator",
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "32": "icons/icon32.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "128": "icons/qr-code-128px.png"
     }
   },
   "permissions": ["storage", "activeTab"],
@@ -22,9 +19,6 @@
     }
   ],
   "icons": {
-    "16": "icons/icon16.svg",
-    "32": "icons/icon32.svg",
-    "48": "icons/icon48.svg",
-    "128": "icons/icon128.svg"
+    "128": "icons/qr-code-128px.png"
   }
 }
