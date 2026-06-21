@@ -91,6 +91,7 @@ let lastActivityUpdate = 0;
 let editingId = null;
 let pendingDeleteId = null;
 let preferencesDraft = null;
+let dragSrcId = null;          // id of account being dragged
 const codes = new Map();
 
 function showToast(message) {
@@ -163,6 +164,8 @@ function normalizeSortText(value) {
 function sortAccounts(list) {
   const mode = getSortMode();
   const sorted = [...list];
+  // "manual" preserves the order stored in vault.accounts
+  if (mode === "manual") return sorted;
   if (mode === "oldest") {
     sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     return sorted;
@@ -867,6 +870,66 @@ async function saveAccount() {
   renderAccounts();
 }
 
+// ── Drag-to-reorder handlers ─────────────────────────────────────────────────
+function handleDragStart(e, accountId) {
+  dragSrcId = accountId;
+  // Delay adding the class so the drag image captures the normal look
+  requestAnimationFrame(() => e.target.closest(".account")?.classList.add("dragging"));
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", accountId);
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  e.currentTarget.classList.add("drag-over");
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove("drag-over");
+}
+
+async function handleDrop(e, targetId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-over");
+  if (!dragSrcId || dragSrcId === targetId) return;
+
+  // Build the currently displayed order, apply the swap
+  const query = elements.searchInput.value.trim().toLowerCase();
+  const filtered = vault.accounts.filter(
+    (a) => `${a.issuer} ${a.label}`.toLowerCase().includes(query)
+  );
+  const displayed = sortAccounts(filtered);
+
+  const srcIdx = displayed.findIndex((a) => a.id === dragSrcId);
+  const tgtIdx = displayed.findIndex((a) => a.id === targetId);
+  if (srcIdx === -1 || tgtIdx === -1) return;
+
+  // Reorder within the displayed slice
+  const [moved] = displayed.splice(srcIdx, 1);
+  displayed.splice(tgtIdx, 0, moved);
+
+  // Rebuild vault.accounts: displayed items in new order, hidden items appended
+  const hiddenIds = new Set(displayed.map((a) => a.id));
+  const hidden = vault.accounts.filter((a) => !hiddenIds.has(a.id));
+  vault.accounts = [...displayed, ...hidden];
+
+  // Persist new order and switch to manual sort so it sticks
+  meta = await updateMeta({ sortMode: "manual" });
+  if (elements.sortSelect) elements.sortSelect.value = "manual";
+  if (preferencesDraft) preferencesDraft.sortMode = "manual";
+
+  await saveVault();
+  renderAccounts();
+}
+
+function handleDragEnd(e) {
+  dragSrcId = null;
+  // Clean up any lingering visual states
+  document.querySelectorAll(".account.dragging").forEach((el) => el.classList.remove("dragging"));
+  document.querySelectorAll(".account.drag-over").forEach((el) => el.classList.remove("drag-over"));
+}
+
 function renderAccounts() {
   if (!vault) return;
   const query = elements.searchInput.value.trim().toLowerCase();
@@ -888,9 +951,23 @@ function renderAccounts() {
     item.className = "account";
     item.dataset.id = account.id;
     item.setAttribute("role", "listitem");
+    item.setAttribute("draggable", "true");
+
+    // Drag events
+    item.addEventListener("dragstart", (e) => handleDragStart(e, account.id));
+    item.addEventListener("dragover",  handleDragOver);
+    item.addEventListener("dragleave", handleDragLeave);
+    item.addEventListener("drop",      (e) => handleDrop(e, account.id));
+    item.addEventListener("dragend",   handleDragEnd);
 
     const header = document.createElement("div");
     header.className = "account-header";
+
+    // Drag handle — visible on hover, used to initiate drag
+    const dragHandle = document.createElement("div");
+    dragHandle.className = "drag-handle";
+    dragHandle.setAttribute("aria-hidden", "true");
+    dragHandle.innerHTML = "&#8942;&#8942;"; // ⠿ six-dot grid
 
     const title = document.createElement("div");
     title.className = "account-title";
@@ -902,7 +979,7 @@ function renderAccounts() {
 
     const actions = document.createElement("div");
     actions.className = "actions";
-    header.append(title);
+    header.append(title, dragHandle);
 
     const codeRow = document.createElement("div");
     codeRow.className = "code-row";
