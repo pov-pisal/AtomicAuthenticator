@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Atomic Authenticator — Backup</title>
+    <link rel="stylesheet" href="popup.css" />
+    <style>
+      body { width: 100%; max-width: 640px; margin: 0 auto; min-height: 100vh; padding: 32px 16px; }
+      .page-header { display: flex; align-items: center; gap: 14px; margin-bottom: 32px; }
+      .page-header h1 { font-size: 22px; margin: 0; }
+      .page-header .subtitle { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+      .card h2 { font-size: 15px; margin: 0 0 16px; color: var(--primary); display:flex; align-items:center; gap:8px; }
+      .backup-textarea { width:100%; min-height:160px; background:var(--panel-2); border:1px solid var(--border); border-radius:10px; color:var(--text); padding:12px; font-size:12px; font-family:monospace; resize:vertical; }
+      .backup-actions { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+      .backup-btn { flex:1; padding:10px 14px; border-radius:10px; font-size:13px; font-weight:600; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all .18s; min-width:120px; }
+      .download-btn { background:linear-gradient(135deg,var(--primary),var(--accent)); color:#fff; }
+      .download-btn:hover { filter:brightness(1.12); transform:translateY(-1px); }
+      .copy-btn { background:var(--panel-2); border:1px solid var(--border); color:var(--text); }
+      .copy-btn:hover { border-color:var(--primary); color:var(--primary); }
+      .file-select-btn { background:var(--panel-2); border:1px solid var(--border); color:var(--text); }
+      .file-select-btn:hover { border-color:var(--accent); color:var(--accent); }
+      .import-btn { background:linear-gradient(135deg,var(--accent),var(--primary)); color:#fff; }
+      .import-btn:hover { filter:brightness(1.12); transform:translateY(-1px); }
+      .status-msg { margin-top:12px; padding:10px 14px; border-radius:10px; font-size:13px; display:none; }
+      .status-msg.show { display:block; }
+      .status-msg.success { background:rgba(76,201,240,.12); border:1px solid rgba(76,201,240,.3); color:var(--primary); }
+      .status-msg.error { background:rgba(248,113,113,.12); border:1px solid rgba(248,113,113,.3); color:var(--danger); }
+      .status-msg.info { background:rgba(167,139,250,.12); border:1px solid rgba(167,139,250,.3); color:var(--accent); }
+      .locked-msg { text-align:center; padding:40px 20px; color:var(--muted); }
+      .locked-msg .icon { font-size:48px; margin-bottom:16px; }
+      .drop-zone { border: 2px dashed var(--border); border-radius:10px; padding:24px; text-align:center; color:var(--muted); font-size:13px; transition:all .18s; cursor:pointer; margin-bottom:12px; }
+      .drop-zone.drag-over { border-color:var(--accent); color:var(--accent); background:rgba(167,139,250,.08); }
+      .drop-zone .drop-icon { font-size:28px; margin-bottom:8px; }
+      #importFile { display:none; }
+    </style>
+  </head>
+  <body>
+    <div class="page-header">
+      <div>
+        <h1>🛡️ Backup &amp; Restore</h1>
+        <p class="subtitle">Export or import your Atomic Authenticator vault</p>
+      </div>
+    </div>
+
+    <div id="lockedSection" class="card locked-msg" style="display:none">
+      <div class="icon">🔒</div>
+      <p>Your vault is locked or no session found.<br>Please unlock the vault from the extension popup first, then reopen this page.</p>
+    </div>
+
+    <!-- Export -->
+    <div id="exportCard" class="card">
+      <h2>📤 Export Backup</h2>
+      <textarea id="exportText" class="backup-textarea" readonly placeholder="Loading backup..."></textarea>
+      <div class="backup-actions">
+        <button id="copyBtn" class="backup-btn copy-btn">📋 Copy to Clipboard</button>
+        <button id="downloadBtn" class="backup-btn download-btn">⬇️ Download File</button>
+      </div>
+      <div id="exportStatus" class="status-msg"></div>
+    </div>
+
+    <!-- Import -->
+    <div id="importCard" class="card">
+      <h2>📥 Import Backup</h2>
+
+      <!-- Drag & Drop zone -->
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-icon">📂</div>
+        <div>Drag &amp; drop a backup <strong>.json</strong> file here</div>
+        <div style="margin-top:6px;font-size:12px">or click to browse</div>
+      </div>
+      <input id="importFile" type="file" accept=".json,application/json" />
+
+      <textarea id="importText" class="backup-textarea" placeholder='Or paste JSON here: {"accounts":[...]}'></textarea>
+      <div class="backup-actions">
+        <button id="importBtn" class="backup-btn import-btn">✓ Import</button>
+      </div>
+      <div id="importStatus" class="status-msg"></div>
+    </div>
+
+    <script type="module" src="backup.js"></script>
+  </body>
+</html>

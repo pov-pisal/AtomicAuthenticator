@@ -329,14 +329,28 @@
 
             <!-- Import Section -->
             <div class="backup-tab-content hidden" id="import-tab">
+              <div id="importDropZone" class="drop-zone" role="region" aria-label="Drop zone for backup file">
+                <span class="drop-icon">📂</span>
+                <span>Drag &amp; drop a <strong>.json</strong> backup here</span>
+              </div>
               <textarea
                 id="importText"
                 class="backup-textarea"
-                placeholder='{"vault":"..."}'
+                placeholder='Or paste JSON here: {"accounts":[...]}'
               ></textarea>
+              <input
+                id="importFile"
+                type="file"
+                accept=".json,application/json"
+                class="hidden-file-input"
+                aria-label="Select backup file"
+              />
               <div class="backup-actions">
                 <button id="importBtn" class="backup-btn import-btn">
-                  ✓ Import Backup
+                  ✓ Import
+                </button>
+                <button id="importFileBtn" class="backup-btn file-select-btn">
+                  🔗 Open Full Backup Page
                 </button>
               </div>
               <div

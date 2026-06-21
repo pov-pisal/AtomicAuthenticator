@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Atomic Authenticator",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Secure TOTP generator with encrypted vault.",
   "action": {
     "default_title": "Atomic Authenticator",
@@ -10,12 +10,21 @@
       "128": "icons/qr-code-128px.png"
     }
   },
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "downloads", "tabs"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["contentScript.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["backup.html", "backup.js", "popup.css", "crypto.js", "storage.js", "totp.js"],
+      "matches": ["<all_urls>"]
     }
   ],
   "icons": {

@@ -284,6 +284,39 @@ button:active {
   background: var(--panel-2);
 }
 
+.hidden-file-input {
+  display: none;
+}
+
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: default;
+  transition: border-color 0.18s, background 0.18s, color 0.18s;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.drop-zone .drop-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.drop-zone.drag-over {
+  border-color: var(--primary);
+  background: rgba(76, 201, 240, 0.07);
+  color: var(--primary);
+}
+
+
 .backup-actions {
   display: flex;
   flex-direction: column;

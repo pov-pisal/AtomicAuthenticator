@@ -67,6 +67,7 @@ const elements = {
   exportText: document.getElementById("exportText"),
   importText: document.getElementById("importText"),
   importBtn: document.getElementById("importBtn"),
+  importFileBtn: document.getElementById("importFileBtn"),
   importFile: document.getElementById("importFile"),
   importError: document.getElementById("importError"),
   backupStatus: document.getElementById("backupStatus"),
@@ -537,23 +538,73 @@ async function handleChangePin() {
   }
 }
 
-function handleBackup() {
+async function handleBackup() {
   if (!vaultRecord) {
     showToast("No vault to backup");
     return;
   }
   const payload = buildBackupPayload();
-  const blob = new Blob([payload], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
+  if (!payload) {
+    showToast("No vault data to backup — make sure you are unlocked");
+    return;
+  }
+
   const timestamp = new Date().toISOString().split("T")[0];
-  link.download = `atomic-authenticator-backup-${timestamp}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  showToast("✓ Backup downloaded successfully");
+  const filename = `atomic-authenticator-backup-${timestamp}.json`;
+
+  // ── Method 1: File System Access API (save dialog) ──────────────────────
+  // Works in Chrome extension popup pages (secure context, user gesture present).
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: "JSON backup", accept: { "application/json": [".json"] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(payload);
+      await writable.close();
+      showToast("✓ Backup saved successfully");
+      return;
+    } catch (err) {
+      if (err.name === "AbortError") return; // user cancelled — do nothing
+      console.warn("showSaveFilePicker failed:", err.message);
+      // fall through to Method 2
+    }
+  }
+
+  // ── Method 2: chrome.downloads with base64 data URI ─────────────────────
+  // Calling directly from the popup page (not service worker) supports data: URIs.
+  if (chrome.downloads) {
+    try {
+      const base64 = btoa(unescape(encodeURIComponent(payload)));
+      const dataUrl = "data:application/json;base64," + base64;
+      await new Promise((resolve, reject) => {
+        chrome.downloads.download(
+          { url: dataUrl, filename, saveAs: false, conflictAction: "uniquify" },
+          (downloadId) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(downloadId);
+            }
+          }
+        );
+      });
+      showToast("✓ Backup downloaded to Downloads folder");
+      return;
+    } catch (err) {
+      console.warn("chrome.downloads failed:", err.message);
+      // fall through to Method 3
+    }
+  }
+
+  // ── Method 3: Copy to clipboard as last resort ───────────────────────────
+  try {
+    await navigator.clipboard.writeText(payload);
+    showToast("⚠ Download unavailable — backup copied to clipboard instead");
+  } catch (err) {
+    showToast("Download failed. Use Copy to Clipboard button above.");
+  }
 }
 
 function buildBackupPayload() {
@@ -597,43 +648,120 @@ async function handleCopyBackup() {
 }
 
 async function handleImportBackup() {
+  clearImportError();
+  const content = elements.importText?.value?.trim();
+  if (!content) {
+    showImportError("Paste a backup JSON or upload a file");
+    return;
+  }
+
+  showImportError("Parsing backup data... Please wait.");
+
+  let payload;
   try {
-    clearImportError();
-    const content = elements.importText?.value?.trim();
-    if (!content) {
-      showImportError("Paste a backup JSON or upload a file");
-      return;
-    }
-    const payload = JSON.parse(content);
-    const importedAccounts = payload?.accounts;
-    if (!Array.isArray(importedAccounts)) {
-      showImportError("Invalid backup file format");
+    // Clean potential BOM or extra whitespaces
+    const cleanContent = content.replace(/^\uFEFF/, "");
+    payload = JSON.parse(cleanContent);
+  } catch (parseError) {
+    showImportError(`Invalid JSON format: ${parseError.message}`);
+    console.error("JSON parse error:", parseError);
+    return;
+  }
+
+  // 1. Check if it's a decrypted accounts list
+  let importedAccounts = null;
+  if (Array.isArray(payload)) {
+    importedAccounts = payload;
+  } else if (payload && Array.isArray(payload.accounts)) {
+    importedAccounts = payload.accounts;
+  }
+
+  if (importedAccounts) {
+    showImportError(`Found ${importedAccounts.length} decrypted accounts. Validating...`);
+    // Validate accounts
+    const validAccounts = importedAccounts.every(
+      (account) => account && typeof account.secret === "string"
+    );
+    if (!validAccounts || importedAccounts.length === 0) {
+      showImportError("Invalid account data in backup - secret is required for all accounts");
       return;
     }
 
-    // Import accounts into current vault
+    showImportError("Importing and encrypting accounts...");
+    // Import accounts into current vault, ensuring all fields are populated correctly
     if (!vault) {
       vault = { accounts: [], createdAt: Date.now() };
     }
-    vault.accounts = importedAccounts;
+
+    // Clean and normalize secrets
+    vault.accounts = importedAccounts.map((account) => ({
+      id: account.id || crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
+      issuer: account.issuer || "",
+      label: account.label || "",
+      secret: account.secret.replace(/\s+/g, "").toUpperCase(),
+      createdAt: account.createdAt || Date.now(),
+    }));
 
     // Re-encrypt with current PIN
-    vaultRecord = await encryptVault(sessionPin, vault);
-    await setVaultRecord(vaultRecord);
-    showToast("✓ Backup imported successfully");
+    try {
+      vaultRecord = await encryptVault(sessionPin, vault);
+      await setVaultRecord(vaultRecord);
+      clearInputs();
+      showToast("✓ Backup imported successfully");
+      renderAccounts();
+      closeSettingsModal();
+    } catch (encryptError) {
+      showImportError(`Failed to encrypt and save accounts: ${encryptError.message}`);
+      console.error("Encryption error:", encryptError);
+    }
+    return;
+  }
 
-    // Refresh the accounts list
-    renderAccounts();
-    closeSettingsModal();
-  } catch (error) {
-    showImportError("Import failed: Invalid JSON format");
-  } finally {
-    if (elements.importText) {
-      elements.importText.value = "";
+  // 2. Check if it's an encrypted vault record
+  let encryptedVault = null;
+  if (payload && payload.ciphertext && payload.iv && payload.salt) {
+    encryptedVault = payload;
+  } else if (payload && payload.vault) {
+    if (typeof payload.vault === "object" && payload.vault.ciphertext && payload.vault.iv && payload.vault.salt) {
+      encryptedVault = payload.vault;
+    } else if (typeof payload.vault === "string") {
+      try {
+        const parsedVault = JSON.parse(payload.vault);
+        if (parsedVault && parsedVault.ciphertext && parsedVault.iv && parsedVault.salt) {
+          encryptedVault = parsedVault;
+        }
+      } catch (e) {
+        // ignore
+      }
     }
-    if (elements.importFile) {
-      elements.importFile.value = "";
+  }
+
+  if (encryptedVault) {
+    showImportError("Found encrypted vault record. Saving directly...");
+    // Save directly
+    try {
+      await setVaultRecord(encryptedVault);
+      clearInputs();
+      await setLocked(true);
+      showLockedView({ createMode: false });
+      closeSettingsModal();
+      showToast("✓ Encrypted backup imported. Please enter PIN to unlock.");
+    } catch (saveError) {
+      showImportError(`Failed to save encrypted vault: ${saveError.message}`);
+      console.error("Save error:", saveError);
     }
+    return;
+  }
+
+  showImportError("Unrecognized backup format. Ensure the file contains accounts or vault data.");
+}
+
+function clearInputs() {
+  if (elements.importText) {
+    elements.importText.value = "";
+  }
+  if (elements.importFile) {
+    elements.importFile.value = "";
   }
 }
 
@@ -647,6 +775,36 @@ function clearImportError() {
   if (elements.importError) {
     elements.importError.textContent = "";
     elements.importError.classList.add("hidden");
+  }
+}
+
+async function handleImportFileSelect(event) {
+  try {
+    clearImportError();
+    showImportError("Reading selected backup file...");
+
+    const file = elements.importFile?.files?.[0] || event.target?.files?.[0];
+    if (!file) {
+      showImportError("No file selected.");
+      return;
+    }
+
+    // Read the file content
+    const content = await file.text();
+    if (!content) {
+      showImportError("Selected file is empty.");
+      return;
+    }
+
+    // Populate textarea and trigger import
+    if (elements.importText) {
+      elements.importText.value = content;
+    }
+    await handleImportBackup();
+  } catch (error) {
+    console.error("File selection error:", error);
+    showImportError(`Failed to read file: ${error.message || error}`);
+    clearInputs();
   }
 }
 
@@ -955,6 +1113,13 @@ async function init() {
   }
 
   elements.unlockBtn.addEventListener("click", handleUnlock);
+
+  // Press Enter on any PIN field to unlock / create vault
+  const onEnterUnlock = (e) => { if (e.key === "Enter") handleUnlock(); };
+  elements.unlockPin.addEventListener("keydown", onEnterUnlock);
+  elements.newPin.addEventListener("keydown", onEnterUnlock);
+  elements.confirmPin.addEventListener("keydown", onEnterUnlock);
+
   elements.editAccountsBtn.addEventListener("click", openEditAccountsModal);
   elements.settingsBtn.addEventListener("click", openSettingsModal);
   elements.addAccountBtn.addEventListener("click", () => openModal());
@@ -973,6 +1138,56 @@ async function init() {
   elements.changePinBtn.addEventListener("click", handleChangePin);
   elements.backupBtn.addEventListener("click", handleBackup);
   elements.copyBackupBtn.addEventListener("click", handleCopyBackup);
+  // "Open Full Backup Page" button — opens backup.html as a tab (file pickers work there)
+  elements.importFileBtn?.addEventListener("click", () => {
+    chrome.tabs.create({ url: chrome.runtime.getURL("backup.html") });
+  });
+
+  // Drag-and-drop on the drop zone — no dialog, no popup close, just reads the file
+  const dropZone = document.getElementById("importDropZone");
+  if (dropZone) {
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("drag-over");
+    });
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("drag-over");
+    });
+    dropZone.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      try {
+        const content = await file.text();
+        if (!content) { showImportError("Dropped file is empty."); return; }
+        if (elements.importText) elements.importText.value = content;
+        showImportError(`✓ "${file.name}" loaded — click Import to apply.`);
+      } catch (err) {
+        showImportError(`Failed to read file: ${err.message}`);
+      }
+    });
+  }
+
+  // Also allow drag-and-drop directly onto the textarea
+  if (elements.importText) {
+    elements.importText.addEventListener("dragover", (e) => e.preventDefault());
+    elements.importText.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer?.files?.[0];
+      if (!file) return;
+      try {
+        const content = await file.text();
+        if (content) {
+          elements.importText.value = content;
+          showImportError(`✓ "${file.name}" loaded — click Import to apply.`);
+        }
+      } catch (err) {
+        showImportError(`Failed to read file: ${err.message}`);
+      }
+    });
+  }
+
   elements.importBtn.addEventListener("click", handleImportBackup);
   elements.prefSaveBtn.addEventListener("click", savePreferences);
   elements.prefCancelBtn.addEventListener("click", cancelPreferences);
